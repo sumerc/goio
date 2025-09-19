@@ -1,3 +1,3 @@
 # goio
 
-Vibe-coded, simple, opiniated Go application to read per-process Disk/Net I/O that works only using `/proc` and `INET_DIAG`
+Vibe-coded, simple, opinionated Go app for per-process disk & TCP bytes—pure `/proc` + `INET_DIAG`. No `eBPF`. No `pcap`.

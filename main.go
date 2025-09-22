@@ -16,7 +16,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const onlyUserProcs = true
+//const onlyUserProcs = true
 
 type dpair struct{ r, w uint64 }
 type nq struct{ rx, tx uint64; ns string }
@@ -186,20 +186,20 @@ func main() {
 
 			comm := pname(pid)
 
-			if onlyUserProcs {
-				kthread := false
-				if bb, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid)); err == nil {
-					kthread = len(bytes.Trim(bb, "\x00")) == 0
-				}
-				if ns == "?" { kthread = true }
-				if strings.HasPrefix(comm, "kworker") || strings.HasPrefix(comm, "ksoftirqd") ||
-					strings.HasPrefix(comm, "kthreadd") || strings.HasPrefix(comm, "rcu_") ||
-					strings.HasPrefix(comm, "migration/") || strings.HasPrefix(comm, "irq/") ||
-					strings.HasPrefix(comm, "cpuhp/") {
-					kthread = true
-				}
-				if kthread { continue }
-			}
+			// if onlyUserProcs {
+			// 	kthread := false
+			// 	if bb, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid)); err == nil {
+			// 		kthread = len(bytes.Trim(bb, "\x00")) == 0
+			// 	}
+			// 	if ns == "?" { kthread = true }
+			// 	if strings.HasPrefix(comm, "kworker") || strings.HasPrefix(comm, "ksoftirqd") ||
+			// 		strings.HasPrefix(comm, "kthreadd") || strings.HasPrefix(comm, "rcu_") ||
+			// 		strings.HasPrefix(comm, "migration/") || strings.HasPrefix(comm, "irq/") ||
+			// 		strings.HasPrefix(comm, "cpuhp/") {
+			// 		kthread = true
+			// 	}
+			// 	if kthread { continue }
+			// }
 
 			if rbps==0 && wbps==0 && nrx==0 && ntx==0 { continue }
 
@@ -270,11 +270,11 @@ func main() {
 		})
 
 		fmt.Print("\033[H\033[2J")
-		fmt.Printf("per-proc DISK bytes/s + TCP bytes/s (INET_DIAG)  %s   [sort=%s]\n", time.Now().Format(time.RFC3339), sortBy)
-		fmt.Printf("SYSTEM TOTAL:           DISK_R %-12s  DISK_W %-12s  NET_RX %-12s  NET_TX %-12s\n",
+		fmt.Printf("per-proc DISK bytes/s + TCP bytes/s (INET_DIAG)  %s   [sort=%s]\n\n", time.Now().Format(time.RFC3339), sortBy)
+		fmt.Printf("SYSTEM TOTAL:            DISK_R %-12s  DISK_W %-12s  NET_RX %-12s  NET_TX %-12s\n",
 			human(sysDiskRbps), human(sysDiskWbps), human(sysNetRxBpsProc), human(sysNetTxBpsProc))
-		fmt.Printf("SYSTEM TOTAL (rtnetlink)                        NET_RX %-12s  NET_TX %-12s\n\n",
-			human(sysNetRxBpsRTNL), human(sysNetTxBpsRTNL))
+		fmt.Printf("SYSTEM TOTAL (rtnetlink) DISK_R %-12s  DISK_W %-12s  NET_RX %-12s  NET_TX %-12s\n\n",
+			"-", "-", human(sysNetRxBpsRTNL), human(sysNetTxBpsRTNL))
 
 		fmt.Printf("%-6s %-26s %12s %12s %12s %12s\n",
 			"PID", "COMM", "DISK_R", "DISK_W", "NET_RX", "NET_TX")

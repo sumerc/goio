@@ -16,8 +16,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-//const onlyUserProcs = true
-
 type dpair struct{ r, w uint64 }
 type nq struct{ rx, tx uint64; ns string }
 
@@ -185,21 +183,6 @@ func main() {
 			}
 
 			comm := pname(pid)
-
-			// if onlyUserProcs {
-			// 	kthread := false
-			// 	if bb, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid)); err == nil {
-			// 		kthread = len(bytes.Trim(bb, "\x00")) == 0
-			// 	}
-			// 	if ns == "?" { kthread = true }
-			// 	if strings.HasPrefix(comm, "kworker") || strings.HasPrefix(comm, "ksoftirqd") ||
-			// 		strings.HasPrefix(comm, "kthreadd") || strings.HasPrefix(comm, "rcu_") ||
-			// 		strings.HasPrefix(comm, "migration/") || strings.HasPrefix(comm, "irq/") ||
-			// 		strings.HasPrefix(comm, "cpuhp/") {
-			// 		kthread = true
-			// 	}
-			// 	if kthread { continue }
-			// }
 
 			if rbps==0 && wbps==0 && nrx==0 && ntx==0 { continue }
 

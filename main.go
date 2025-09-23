@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -23,12 +24,34 @@ var ws = regexp.MustCompile(`[[:space:]]+`)
 
 func u64(s string) uint64 { v, _ := strconv.ParseUint(s, 10, 64); return v }
 
-func pname(pid int) string {
-	if b, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid)); err == nil {
-		if n := strings.TrimSpace(string(b)); n != "" { return n }
+type winsize struct {
+	Row    uint16
+	Col    uint16
+	Xpixel uint16
+	Ypixel uint16
+}
+
+func getTerminalWidth() int {
+	ws := &winsize{}
+	ret, _, _ := unix.Syscall(unix.SYS_IOCTL, uintptr(0), uintptr(unix.TIOCGWINSZ), uintptr(unsafe.Pointer(ws)))
+	if ret == 0 {
+		return int(ws.Col)
 	}
+	return 80 // default fallback
+}
+
+func pname(pid int) string {
+	// Try to get the full executable path first
+	if exe, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid)); err == nil {
+		if exe != "" { return exe }
+	}
+	// Fall back to cmdline (full command with args)
 	if b, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid)); err == nil {
 		if n := strings.TrimSpace(strings.ReplaceAll(string(b), "\x00", " ")); n != "" { return n }
+	}
+	// Last resort: comm (short name)
+	if b, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid)); err == nil {
+		if n := strings.TrimSpace(string(b)); n != "" { return n }
 	}
 	return "unknown"
 }
@@ -252,6 +275,14 @@ func main() {
 			return ai > aj
 		})
 
+		// Calculate dynamic column widths
+		termWidth := getTerminalWidth()
+		pidWidth := 8  // increased from 6 to handle larger PIDs
+		fixedWidth := pidWidth + 1 + 12 + 1 + 12 + 1 + 12 + 1 + 12 + 1 // PID + spaces + 4 data columns
+		commWidth := termWidth - fixedWidth
+		if commWidth < 20 { commWidth = 20 } // minimum width
+		if commWidth > 100 { commWidth = 100 } // reasonable maximum
+
 		fmt.Print("\033[H\033[2J")
 		fmt.Printf("per-proc DISK bytes/s + TCP bytes/s (INET_DIAG)  %s   [sort=%s]\n\n", time.Now().Format(time.RFC3339), sortBy)
 		fmt.Printf("SYSTEM TOTAL:            DISK_R %-12s  DISK_W %-12s  NET_RX %-12s  NET_TX %-12s\n",
@@ -259,13 +290,13 @@ func main() {
 		fmt.Printf("SYSTEM TOTAL (rtnetlink) DISK_R %-12s  DISK_W %-12s  NET_RX %-12s  NET_TX %-12s\n\n",
 			"-", "-", human(sysNetRxBpsRTNL), human(sysNetTxBpsRTNL))
 
-		fmt.Printf("%-6s %-26s %12s %12s %12s %12s\n",
-			"PID", "COMM", "DISK_R", "DISK_W", "NET_RX", "NET_TX")
+		fmt.Printf("%-*s %-*s %-12s %-12s %-12s %-12s\n",
+			pidWidth, "PID", commWidth, "COMM", "DISK_R", "DISK_W", "NET_RX", "NET_TX")
 		n := 20; if len(rows) < n { n = len(rows) }
 		for i := 0; i < n; i++ {
 			r := rows[i]
-			fmt.Printf("%-6d %-26s %12s %12s %12s %12s\n",
-				r.pid, fit(r.comm, 26), human(r.rbps), human(r.wbps), human(r.nrx), human(r.ntx))
+			fmt.Printf("%-*d %-*s %-12s %-12s %-12s %-12s\n",
+				pidWidth, r.pid, commWidth, fit(r.comm, commWidth), human(r.rbps), human(r.wbps), human(r.nrx), human(r.ntx))
 		}
 
 		prevD, prevN, t0 = curD, curN, t1
